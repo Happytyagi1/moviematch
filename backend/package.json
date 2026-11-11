@@ -33,5 +33,13 @@
     "mongodb-memory-server": "^11.3.0",
     "supertest": "^7.3.2",
     "vitest": "^5.1.0"
+  },
+  "overrides": {
+    "glob@^10": {
+      "minimatch": "^11.0.1"
+    },
+    "gaxios@^6": {
+      "uuid": "^11.1.1"
+    }
   }
 }

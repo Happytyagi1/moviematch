@@ -28,6 +28,12 @@
     "vitest": "^5.1.0"
   },
   "overrides": {
-    "@grpc/grpc-js": "^1.13.6"
+    "@grpc/grpc-js": "^1.13.6",
+    "glob@^13": {
+      "minimatch": "^11.0.1"
+    },
+    "editorconfig@^3": {
+      "minimatch": "^11.0.1"
+    }
   }
 }
