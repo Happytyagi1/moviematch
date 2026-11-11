@@ -10,7 +10,7 @@ vi.mock('../src/api.js', async (orig) => {
     Auth: { ...real.Auth, config: vi.fn(), session: vi.fn(), me: vi.fn(), logout: vi.fn(), logoutAll: vi.fn(), deleteAccount: vi.fn() },
     Movies: {
       options: vi.fn(), seeds: vi.fn(), savePreferences: vi.fn(), home: vi.fn(), recommendations: vi.fn(),
-      search: vi.fn(), details: vi.fn(), interact: vi.fn(), library: vi.fn(), libraryState: vi.fn(), favorites: vi.fn(), model: vi.fn(),
+      search: vi.fn(), details: vi.fn(), trailer: vi.fn(), interact: vi.fn(), library: vi.fn(), libraryState: vi.fn(), favorites: vi.fn(), model: vi.fn(),
     },
   };
 });
@@ -188,6 +188,16 @@ describe('MovieModal trailers', () => {
     await w.find('.stop').trigger('click');
     expect(w.find('iframe').exists()).toBe(false);
     expect(w.find('.close').exists()).toBe(true);
+    w.unmount();
+  });
+
+  it('"Play trailer" from another page opens the window with the trailer already playing', async () => {
+    Movies.details.mockResolvedValue({ movie, similar: [], interaction: {}, trailer: { key: 'abcdefghijk', name: 'Trailer' } });
+    const w = mount(await MovieModal(), { global: { plugins: [pinia], stubs }, attachTo: document.body });
+    useUi().openMovie(movie.id, { playTrailer: true });
+    await flushPromises();
+    expect(w.find('iframe').attributes('src')).toContain('youtube-nocookie.com/embed/abcdefghijk');
+    expect(useUi().modalAutoplay).toBe(false); // one-shot: the next film opens normally
     w.unmount();
   });
 

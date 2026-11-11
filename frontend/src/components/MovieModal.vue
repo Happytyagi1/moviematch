@@ -37,6 +37,9 @@ async function load(id) {
     if (ui.modalMovieId !== id) return; // user already opened another movie
     ui.remember(id, res.interaction);
     data.value = res;
+    // Opened from a "Play trailer" button elsewhere: start it straight away.
+    if (ui.modalAutoplay && res.trailer) playing.value = true;
+    ui.modalAutoplay = false;
     await nextTick();
     dialog.value?.scrollTo?.({ top: 0 }); // scrolling is cosmetic: never let it turn a loaded film into an error
   } catch (e) {

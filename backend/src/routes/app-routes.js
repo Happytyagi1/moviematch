@@ -149,6 +149,13 @@ export function appRoutes(rec) {
     res.json({ movies: await enrich(rec.search(req.validQuery.q, req.validQuery.limit)) });
   });
 
+  /** Just the trailer (cheap; cached per film): lets pages show a "Play trailer" button only when there is one. */
+  r.get('/movies/:id/trailer', requireAuth, async (req, res) => {
+    const movie = rec.getMovie(req.params.id);
+    if (!movie) throw new HttpError(404, 'Movie not found');
+    res.json({ trailer: await trailerFor(movie) });
+  });
+
   r.get('/movies/:id', requireAuth, async (req, res) => {
     const movie = rec.getMovie(req.params.id);
     if (!movie) throw new HttpError(404, 'Movie not found');

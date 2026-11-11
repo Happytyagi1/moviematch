@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { Movies } from '../api.js';
 import { useAuth } from '../stores/auth.js';
@@ -55,6 +55,25 @@ function shuffleFeature() {
   try { sessionStorage.setItem(LAST_KEY, JSON.stringify(featuredId.value)); } catch { /* ignore */ }
 }
 const featuredState = computed(() => (featured.value ? ui.stateOf(featured.value.id) : {}));
+
+// "Play trailer" for tonight's feature: only shown when TMDB has one for this film.
+const featuredTrailer = ref(null);
+let trailerCtl;
+watch(
+  () => featured.value?.id,
+  async (id) => {
+    featuredTrailer.value = null;
+    trailerCtl?.abort();
+    if (!id) return;
+    trailerCtl = new AbortController();
+    try {
+      const { trailer } = await Movies.trailer(id, trailerCtl.signal);
+      if (featured.value?.id === id) featuredTrailer.value = trailer;
+    } catch {
+      /* no button then */
+    }
+  },
+);
 const slug = computed(() => {
   const h = new Date().getHours();
   const time = h < 5 ? 'LATE NIGHT' : h < 12 ? 'MORNING' : h < 18 ? 'AFTERNOON' : 'NIGHT';
@@ -149,7 +168,11 @@ onMounted(() => {
             <Icon :name="featuredState.inWatchlist ? 'check' : 'plus'" :size="18" />
             {{ featuredState.inWatchlist ? 'In your watchlist' : 'Add to watchlist' }}
           </button>
-          <button class="btn btn-lg" @click="ui.openMovie(featured.id)">More info</button>        </div>
+          <button v-if="featuredTrailer" class="btn btn-primary btn-lg btn-trailer" @click="ui.openMovie(featured.id, { playTrailer: true })">
+            <span class="tri" aria-hidden="true" /> Play trailer
+          </button>
+          <button class="btn btn-lg" @click="ui.openMovie(featured.id)">More info</button>
+        </div>
       </div>
     </section>
     <section v-else-if="loading" class="container hero-skel"><div class="skeleton" style="height: 100%" /></section>
@@ -239,6 +262,9 @@ h1 { font-size: clamp(56px, 8.5vw, 132px); font-weight: 900; line-height: 0.86; 
 .why .label { display: block; font-style: normal; margin-bottom: 2px; }
 .overview { color: var(--ink-2); max-width: 60ch; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 6px; }
+.btn-trailer { animation: fade-up 0.35s var(--ease) both; }
+/* a printed "play" triangle */
+.tri { width: 0; height: 0; border-style: solid; border-width: 7px 0 7px 12px; border-color: transparent transparent transparent currentColor; }
 .slug-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 10px 16px; }
 .btn-shuffle { flex-shrink: 0; }
 .btn-shuffle :deep(svg) { transition: transform 0.4s var(--ease); }
