@@ -1,6 +1,7 @@
 /**
- * Sign-in is Google or Apple only, through Google Identity Platform (Firebase Authentication).
- * MovieMatch never handles passwords; Google/Apple do the sign-in, account security and recovery.
+ * Sign-in is Google-only (config.firebase.allowedProviders), through Google Identity Platform
+ * (Firebase Authentication). MovieMatch never handles passwords; Google does the sign-in,
+ * account security and recovery.
  *
  * This router only:
  *   1. tells the browser how to reach Identity Platform           GET  /config
@@ -72,7 +73,7 @@ export function authRoutes() {
     // made directly against Identity Platform must not get a MovieMatch session.
     const provider = decoded.firebase?.sign_in_provider;
     if (!config.firebase.allowedProviders.includes(provider)) {
-      throw new HttpError(403, 'Please sign in with Google or Apple', undefined, 'PROVIDER_NOT_ALLOWED');
+      throw new HttpError(403, 'Please sign in with Google', undefined, 'PROVIDER_NOT_ALLOWED');
     }
     if (!decoded.email) throw new HttpError(400, 'Your account has no email address', undefined, 'NO_EMAIL');
 

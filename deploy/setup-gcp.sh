@@ -23,10 +23,15 @@ RUN_SA="moviematch-run"
 
 gcloud config set project "$PROJECT_ID"
 PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
-BUILD_SA="${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com"
 
 echo "▶ Enabling APIs"
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com identitytoolkit.googleapis.com
+
+# The account Cloud Build runs as: the legacy Cloud Build account in older projects, the
+# Compute Engine default account in projects created since 2024. Ask instead of guessing.
+BUILD_SA=$(gcloud builds get-default-service-account --format='value(serviceAccountEmail)' | sed 's#.*/##')
+: "${BUILD_SA:?Could not determine the Cloud Build service account}"
+echo "  Cloud Build runs as: $BUILD_SA"
 
 echo "▶ Artifact Registry repo"
 gcloud artifacts repositories describe "$REPO" --location="$REGION" >/dev/null 2>&1 ||
@@ -62,8 +67,13 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --member="serviceAccount:${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com" \
   --role=roles/firebaseauth.admin >/dev/null
 
-echo "▶ Let Cloud Build deploy to Cloud Run"
-gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:${BUILD_SA}" --role=roles/run.admin >/dev/null
+echo "▶ Let Cloud Build test, build and deploy (only the roles it needs)"
+# Newer projects don't give the build account broad Editor rights, so grant exactly what
+# cloudbuild.yaml uses: read the uploaded source, write logs, push the image, look up
+# the project and secret names, and deploy to Cloud Run as the runtime account.
+for role in roles/run.admin roles/artifactregistry.writer roles/logging.logWriter roles/storage.objectViewer roles/browser roles/secretmanager.viewer; do
+  gcloud projects add-iam-policy-binding "$PROJECT_ID" --member="serviceAccount:${BUILD_SA}" --role="$role" --condition=None >/dev/null
+done
 gcloud iam service-accounts add-iam-policy-binding "${RUN_SA}@${PROJECT_ID}.iam.gserviceaccount.com" \
   --member="serviceAccount:${BUILD_SA}" --role=roles/iam.serviceAccountUser >/dev/null
 

@@ -78,9 +78,6 @@ const notes = [
       </div>
     </section>
 
-    <footer class="container foot label">
-      Model trained on MovieLens (GroupLens Research) · Posters via TMDB when available · Printed on the internet
-    </footer>
   </main>
 </template>
 

@@ -68,7 +68,7 @@ async function google() {
       <div class="auth-row">
         <label class="check"><input v-model="remember" type="checkbox" /> Remember me for 14 days</label>
       </div>
-      <p class="fine-print">We only receive your name, email address and profile photo from Google. We never see your Google password.</p>
+      <p class="fine-print">We only receive your name, email address and profile photo from Google. We never see your Google password. See our <RouterLink class="text-link" to="/privacy">privacy policy</RouterLink>.</p>
     </div>
 
     <p class="auth-foot">

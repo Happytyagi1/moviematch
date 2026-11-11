@@ -1,0 +1,24 @@
+# Files NOT uploaded to Cloud Build by `gcloud builds submit`.
+# Secrets must never leave this machine: on Cloud Run they come from Secret Manager.
+.gcloudignore
+.git/
+.gitignore
+**/.env
+**/.env.*
+!**/.env.example
+google-cloud-information.txt
+**/client_secret*.json
+**/*.log
+
+# Local dependencies and build output (Cloud Build installs/builds its own)
+**/node_modules/
+frontend/dist/
+**/coverage/
+
+# ML training data and local Python environments (tests use the committed model only)
+ml/.venv/
+ml/data/
+ml/artifacts/
+**/__pycache__/
+**/.pytest_cache/
+**/.ipynb_checkpoints/

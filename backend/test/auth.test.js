@@ -90,8 +90,8 @@ describe('exchanging an ID token for a session', () => {
     expect((await request(app).post('/api/auth/session').send({ idToken: firebase.idToken(), remember: 'yes' })).status).toBe(400);
   });
 
-  it('only accepts Google and Apple sign-ins (email/password or anonymous Identity Platform sign-ins are refused)', async () => {
-    for (const provider of ['password', 'anonymous', 'phone']) {
+  it('only accepts Google sign-ins (Apple, email/password or anonymous Identity Platform sign-ins are refused)', async () => {
+    for (const provider of ['password', 'anonymous', 'phone', 'apple.com']) {
       const { res } = await signIn({ uid: `uid-${provider}`, email: `${provider}@example.com`, provider });
       expect(res.status).toBe(403);
       expect(res.body.code).toBe('PROVIDER_NOT_ALLOWED');
@@ -105,13 +105,6 @@ describe('exchanging an ID token for a session', () => {
     expect(res.status).toBe(201);
     expect(res.body.user).toMatchObject({ name: 'Ada Lovelace', signInMethods: { password: false, google: true } });
     expect(res.body.user.avatarUrl).toMatch(/googleusercontent/);
-  });
-
-  it('accepts Apple sign-ins, using the name the browser passes (Apple tokens carry none)', async () => {
-    const idToken = firebase.idToken({ uid: 'uid-apple', email: 'x1y2@privaterelay.appleid.com', name: '', provider: 'apple.com' });
-    const res = await request(app).post('/api/auth/session').send({ idToken, name: 'Grace Hopper' });
-    expect(res.status).toBe(201);
-    expect(res.body.user).toMatchObject({ name: 'Grace Hopper', signInMethods: { google: false, apple: true } });
   });
 
   it('never attaches a different identity to an existing profile via an unverified email', async () => {

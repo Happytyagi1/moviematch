@@ -81,6 +81,11 @@ describe('router guards', () => {
   it('skips landing/sign-in for signed-in users', async () => {
     expect((await go('/signin', { id: 'u', name: 'A', onboarded: true })).name).toBe('home');
   });
+  it('the privacy policy is reachable by everyone (guests, new and existing users)', async () => {
+    expect((await go('/privacy')).name).toBe('privacy');
+    expect((await go('/privacy', { id: 'u', name: 'A', onboarded: false })).name).toBe('privacy');
+    expect((await go('/privacy', { id: 'u', name: 'A', onboarded: true })).name).toBe('privacy');
+  });
 });
 
 describe('AuthView (Google-only sign-in)', () => {

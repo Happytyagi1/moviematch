@@ -6,6 +6,7 @@ const routes = [
   { path: '/', name: 'landing', component: () => import('./views/LandingView.vue'), meta: { guest: true } },
   { path: '/signin', name: 'signin', component: () => import('./views/AuthView.vue'), meta: { guest: true }, props: { mode: 'signin' } },
   { path: '/signup', name: 'signup', component: () => import('./views/AuthView.vue'), meta: { guest: true }, props: { mode: 'signup' } },
+  { path: '/privacy', name: 'privacy', component: () => import('./views/PrivacyView.vue') }, // public: signed in or not
   { path: '/welcome', name: 'onboarding', component: () => import('./views/OnboardingView.vue'), meta: { auth: true, onboarding: true } },
   { path: '/home', name: 'home', component: () => import('./views/HomeView.vue'), meta: { auth: true } },
   { path: '/search', name: 'search', component: () => import('./views/SearchView.vue'), meta: { auth: true } },
