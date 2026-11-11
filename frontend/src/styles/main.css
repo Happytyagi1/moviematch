@@ -1,0 +1,193 @@
+/* ==========================================================================
+   MovieMatch: "Midnight Programme"
+   A printed film-festival programme: newsprint paper, ink, one projector-red
+   accent; screen-printed posters; ticket stubs; screenplay typewriter labels.
+   ========================================================================== */
+:root {
+  /* paper & ink */
+  --paper: #f1e8d6;
+  --paper-2: #e8dcc4;
+  --paper-3: #dccfb3;
+  --card: #f8f2e5;
+  --ink: #16130f;
+  --ink-2: #4b4237;
+  --ink-3: #7d705e;
+  --rule: rgba(22, 19, 15, 0.16);
+  --rule-strong: rgba(22, 19, 15, 0.5);
+
+  /* the single loud accent + poster inks */
+  --red: #e0341b;
+  --red-deep: #b3240f;
+  --mustard: #e9b23c;
+  --teal: #1d4b5a;
+  --bone: #e6dac2;
+  --ok: #2d6a3e;
+  --danger: #b3240f;
+
+  /* legacy aliases used by components */
+  --bg: var(--paper);
+  --bg-2: var(--paper-2);
+  --surface: var(--card);
+  --surface-2: var(--paper-2);
+  --surface-3: var(--paper-3);
+  --border: var(--rule);
+  --border-strong: var(--rule-strong);
+  --text: var(--ink);
+  --text-2: var(--ink-2);
+  --text-3: var(--ink-3);
+  --accent: var(--red);
+  --accent-2: var(--red);
+  --success: var(--ok);
+  --warning: var(--mustard);
+
+  --display: 'Big Shoulders Display', 'Arial Narrow', 'Roboto Condensed', sans-serif;
+  --serif: 'Newsreader', 'Iowan Old Style', Georgia, serif;
+  --mono: 'Courier Prime', 'Courier New', monospace;
+  --font: var(--serif);
+
+  --radius: 4px;
+  --radius-lg: 6px;
+  --hard: 4px 4px 0 var(--ink);
+  --hard-lg: 7px 7px 0 var(--ink);
+  --shadow: 7px 7px 0 var(--ink);
+  --ease: cubic-bezier(0.2, 0.9, 0.25, 1);
+  --header-h: 72px;
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.09 0 0 0 0 0.07 0 0 0 0 0.05 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --halftone: radial-gradient(circle at center, rgba(22, 19, 15, 0.22) 1.1px, transparent 1.5px);
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--ink);
+  font: 400 17px/1.55 var(--serif);
+  font-optical-sizing: auto;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -10%, rgba(255, 252, 244, 0.9), transparent 60%),
+    radial-gradient(ellipse 90% 70% at 100% 110%, rgba(196, 160, 110, 0.25), transparent 60%),
+    var(--paper);
+}
+/* film grain over everything (static, cheap, no JS) */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  pointer-events: none;
+  background-image: var(--grain);
+  opacity: 0.28;
+  mix-blend-mode: multiply;
+}
+img { max-width: 100%; display: block; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; cursor: pointer; }
+input, select, textarea { font: inherit; color: inherit; }
+h1, h2, h3, h4 { font-family: var(--display); font-weight: 800; line-height: 0.95; margin: 0; letter-spacing: 0.005em; text-transform: uppercase; }
+p { margin: 0; }
+:focus-visible { outline: 3px solid var(--red); outline-offset: 3px; }
+::selection { background: var(--mustard); color: var(--ink); }
+
+.container { width: 100%; max-width: 1360px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 48px); }
+.gradient-text, .accent-text { color: var(--red); }
+.muted { color: var(--ink-2); }
+.subtle { color: var(--ink-3); }
+.label { font: 700 12px/1.2 var(--mono); text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-3); }
+.serif-italic { font-family: var(--serif); font-style: italic; text-transform: none; font-weight: 400; letter-spacing: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* -------------------------------------------------------------- buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  height: 48px; padding: 0 22px; border-radius: var(--radius); border: 2px solid var(--ink);
+  font: 700 14px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.08em; white-space: nowrap;
+  background: var(--card); color: var(--ink); box-shadow: var(--hard);
+  transition: transform 0.15s var(--ease), box-shadow 0.15s var(--ease), background 0.15s;
+}
+.btn:not(:disabled):hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--ink); }
+.btn:not(:disabled):active { transform: translate(4px, 4px); box-shadow: 0 0 0 var(--ink); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+.btn-primary { background: var(--red); color: #fff8ec; }
+.btn-ghost { background: var(--card); }
+.btn-ghost:hover { background: var(--mustard); }
+.btn-lg { height: 58px; padding: 0 30px; font-size: 15px; }
+.btn-sm { height: 38px; padding: 0 14px; font-size: 12px; box-shadow: 3px 3px 0 var(--ink); }
+.btn-danger { background: var(--card); color: var(--red-deep); border-color: var(--red-deep); box-shadow: 4px 4px 0 var(--red-deep); }
+.icon-btn {
+  display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: var(--radius);
+  background: var(--card); border: 2px solid var(--ink); transition: all 0.15s var(--ease);
+}
+.icon-btn:hover:not(:disabled) { background: var(--mustard); transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink); }
+.icon-btn.active { background: var(--red); color: #fff8ec; }
+
+/* --------------------------------------------- chips = ticket stubs */
+.chip {
+  --notch: 6px;
+  position: relative; display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px;
+  font: 700 13px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--ink); background: var(--card); border: 2px solid var(--ink); border-radius: 3px;
+  /* punched notches on both sides */
+  -webkit-mask: radial-gradient(circle var(--notch) at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat,
+                radial-gradient(circle var(--notch) at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat;
+          mask: radial-gradient(circle var(--notch) at 0 50%, transparent 98%, #000) left / 51% 100% no-repeat,
+                radial-gradient(circle var(--notch) at 100% 50%, transparent 98%, #000) right / 51% 100% no-repeat;
+  transition: background 0.15s, color 0.15s, transform 0.15s var(--ease);
+  user-select: none;
+}
+.chip:hover { background: var(--mustard); transform: rotate(-1.5deg); }
+.chip.selected { background: var(--red); color: #fff8ec; }
+.chip.avoid.selected { background: var(--ink); color: var(--paper); text-decoration: line-through; text-decoration-thickness: 2px; }
+.tag { display: inline-block; padding: 4px 10px; border: 1.5px solid var(--ink); border-radius: 2px; font: 700 11.5px/1.2 var(--mono); text-transform: uppercase; letter-spacing: 0.06em; background: var(--card); }
+
+/* -------------------------------------------------------------- forms */
+.field { display: grid; gap: 7px; }
+.field label { font: 700 12px var(--mono); text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-2); }
+.input {
+  width: 100%; height: 52px; padding: 0 16px; border-radius: var(--radius); background: #fffaf0;
+  border: 2px solid var(--ink); outline: none; font: 400 17px var(--serif); transition: box-shadow 0.15s, background 0.15s;
+}
+.input::placeholder { color: var(--ink-3); font-style: italic; }
+.input:focus { box-shadow: 4px 4px 0 var(--red); background: #fff; }
+.input.invalid { border-color: var(--red-deep); box-shadow: 4px 4px 0 var(--red-deep); }
+.field-error { color: var(--red-deep); font: 700 12.5px/1.4 var(--mono); }
+input[type='checkbox'] { accent-color: var(--red); }
+
+.card { background: var(--card); border: 2px solid var(--ink); border-radius: var(--radius-lg); box-shadow: var(--hard); }
+
+/* film strip divider: sprocket holes */
+.filmstrip {
+  height: 30px; background-color: var(--ink);
+  background-image:
+    repeating-linear-gradient(90deg, transparent 0 10px, var(--paper) 10px 24px, transparent 24px 34px);
+  background-size: 34px 12px; background-repeat: repeat-x; background-position: 0 9px;
+}
+
+/* ----------------------------------------------------------- skeletons */
+.skeleton {
+  background: repeating-linear-gradient(-45deg, var(--paper-2) 0 10px, var(--paper-3) 10px 20px);
+  background-size: 200% 200%; animation: crawl 1.2s linear infinite; border: 2px solid var(--rule-strong); border-radius: var(--radius);
+}
+@keyframes crawl { to { background-position: 28px 0; } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes drop-in { 0% { opacity: 0; transform: translateY(-40px) rotate(-6deg); } 70% { transform: translateY(4px) rotate(1deg); } 100% { opacity: 1; transform: none; } }
+.fade-up { animation: fade-up 0.7s var(--ease) both; }
+
+/* ---------------------------------------------------------- transitions */
+.page-enter-active, .page-leave-active { transition: opacity 0.22s ease, transform 0.22s var(--ease); }
+.page-enter-from { opacity: 0; transform: translateY(10px); }
+.page-leave-to { opacity: 0; }
+.slide-enter-active, .slide-leave-active, .slide-back-enter-active, .slide-back-leave-active { transition: all 0.38s var(--ease); }
+.slide-enter-from { opacity: 0; transform: translateX(60px) rotate(1deg); }
+.slide-leave-to { opacity: 0; transform: translateX(-60px) rotate(-1deg); }
+.slide-back-enter-from { opacity: 0; transform: translateX(-60px); }
+.slide-back-leave-to { opacity: 0; transform: translateX(60px); }
+
+* { scrollbar-width: thin; scrollbar-color: var(--ink-3) transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}

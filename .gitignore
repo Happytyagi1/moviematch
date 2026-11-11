@@ -1,0 +1,21 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+
+# Python / ML
+ml/.venv/
+ml/data/
+__pycache__/
+.pytest_cache/
+
+# The trained model (backend/model) IS committed: ~1.8 MB, needed by the API image.
+ml/artifacts/
+.ipynb_checkpoints/
+
+# Downloaded Google Cloud credentials (contain secrets)
+google-cloud-information.txt
+client_secret*.json

@@ -1,0 +1,91 @@
+# CI/CD on Google Cloud Build: test → build image → push → deploy to Cloud Run.
+#   gcloud builds submit --config cloudbuild.yaml
+# or connect the repo with a Cloud Build trigger on pushes to main.
+substitutions:
+  _REGION: us-central1
+  _SERVICE: moviematch
+  _REPO: moviematch
+  _RUNTIME_SA: moviematch-run # service account the Cloud Run service runs as
+  _PUBLIC_URL: '' # your custom domain (https://moviematch.example.com) if you map one
+  # Sign-in: Google Identity Platform in this project. The web API key is public (it identifies
+  # the project, it is not a secret): Identity Platform → Application setup details → apiKey.
+  _FIREBASE_API_KEY: ''
+  _FIREBASE_AUTH_DOMAIN: '' # defaults to <project>.firebaseapp.com
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+steps:
+  # 1. ML tests (validates the committed model artifact too)
+  - id: ml-tests
+    name: python:3.12-slim
+    dir: ml
+    entrypoint: bash
+    args: ['-c', 'pip install -q -r requirements.txt && python -m pytest -q']
+
+  # 2. Backend tests (unit + API integration against an in-memory MongoDB)
+  - id: api-tests
+    name: node:24
+    dir: backend
+    entrypoint: bash
+    args: ['-c', 'npm ci --no-audit --no-fund && npm test']
+    waitFor: ['-']
+
+  # 3. Frontend tests
+  - id: web-tests
+    name: node:24
+    dir: frontend
+    entrypoint: bash
+    args: ['-c', 'npm ci --no-audit --no-fund && npm test']
+    waitFor: ['-']
+
+  # 4. Build the production image
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$BUILD_ID
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:latest
+      - .
+    waitFor: ['ml-tests', 'api-tests', 'web-tests']
+
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args: ['push', '--all-tags', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}']
+
+  # 5. Deploy. Secrets come from Secret Manager, never from the image.
+  #    Optional secrets (TMDB) are attached only if they exist. Sign-in needs no secrets:
+  #    the runtime service account talks to Identity Platform with its own identity.
+  #    ($$ escapes a shell variable from Cloud Build substitution.)
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        test -n "${_FIREBASE_API_KEY}" || { echo "Set the _FIREBASE_API_KEY substitution (Identity Platform web API key)"; exit 1; }
+        SECRETS="MONGODB_URI=moviematch-mongodb-uri:latest"
+        for pair in TMDB_API_KEY:moviematch-tmdb-key; do
+          if gcloud secrets describe "$${pair#*:}" >/dev/null 2>&1; then SECRETS="$$SECRETS,$${pair%%:*}=$${pair#*:}:latest"; fi
+        done
+        # Public URL (where password-reset links return to): custom domain if given, else the Cloud Run URL.
+        URL="${_PUBLIC_URL}"
+        if [ -z "$$URL" ]; then
+          NUM=$$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')
+          URL="https://${_SERVICE}-$$NUM.${_REGION}.run.app"
+        fi
+        gcloud run deploy ${_SERVICE} \
+          --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$BUILD_ID \
+          --region=${_REGION} --platform=managed \
+          --service-account=${_RUNTIME_SA}@$PROJECT_ID.iam.gserviceaccount.com \
+          --allow-unauthenticated --port=8080 --cpu=1 --memory=512Mi --concurrency=80 \
+          --min-instances=0 --max-instances=10 --cpu-boost \
+          --set-env-vars="NODE_ENV=production,PUBLIC_URL=$$URL,FIREBASE_PROJECT_ID=$PROJECT_ID,FIREBASE_API_KEY=${_FIREBASE_API_KEY},FIREBASE_AUTH_DOMAIN=${_FIREBASE_AUTH_DOMAIN}" \
+          --set-secrets="$$SECRETS"
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_SERVICE}:$BUILD_ID
