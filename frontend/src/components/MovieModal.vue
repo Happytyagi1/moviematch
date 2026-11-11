@@ -16,16 +16,29 @@ let lastFocus = null;
 const movie = computed(() => data.value?.movie);
 const state = computed(() => (movie.value ? ui.stateOf(movie.value.id) : {}));
 
+// Trailer: YouTube's privacy-enhanced player, created only when the person presses Play
+// (so nothing loads from YouTube just by opening a film).
+const trailer = computed(() => data.value?.trailer || null);
+const playing = ref(false);
+const trailerSrc = computed(() =>
+  trailer.value ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(trailer.value.key)}?autoplay=1&rel=0&playsinline=1` : '',
+);
+function playTrailer() {
+  playing.value = true;
+  dialog.value?.scrollTo?.({ top: 0, behavior: 'smooth' });
+}
+
 async function load(id) {
   data.value = null;
   error.value = '';
+  playing.value = false;
   try {
     const res = await Movies.details(id);
     if (ui.modalMovieId !== id) return; // user already opened another movie
     ui.remember(id, res.interaction);
     data.value = res;
     await nextTick();
-    dialog.value?.scrollTo({ top: 0 });
+    dialog.value?.scrollTo?.({ top: 0 }); // scrolling is cosmetic: never let it turn a loaded film into an error
   } catch (e) {
     error.value = e.message;
   }
@@ -48,6 +61,7 @@ watch(
       await nextTick();
       dialog.value?.focus();
     } else {
+      playing.value = false; // closing the window stops the video
       document.body.style.overflow = '';
       window.removeEventListener('keydown', onKey);
       lastFocus?.focus?.();
@@ -61,16 +75,28 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
   <Transition name="modal">
     <div v-if="ui.modalMovieId" class="backdrop" @click.self="ui.closeMovie()">
       <div ref="dialog" class="dialog" role="dialog" aria-modal="true" :aria-label="movie?.title || 'Movie details'" tabindex="-1">
-        <button class="icon-btn close" aria-label="Close" @click="ui.closeMovie()"><Icon name="x" /></button>
+        <!-- Hidden while a trailer plays: it would sit on top of YouTube's player controls. -->
+        <button v-if="!(playing && trailer)" class="icon-btn close" aria-label="Close" @click="ui.closeMovie()"><Icon name="x" /></button>
 
         <div v-if="error" class="state">{{ error }}</div>
         <div v-else-if="!movie" class="state"><div class="skeleton" style="width: 100%; height: 320px" /></div>
 
         <template v-else>
-          <div class="hero" :data-title="movie.backdrop ? '' : movie.title" :style="{ '--bg': posterGradient(movie.id), backgroundImage: movie.backdrop ? `url(${movie.backdrop})` : 'none' }">
-            <span class="slug">Reel {{ String(movie.id).padStart(5, '0') }} · {{ movie.genres.join(' / ') }}</span>
+          <div v-if="playing && trailer" class="player">
+            <iframe
+              :src="trailerSrc" :title="`${movie.title}: ${trailer.name}`"
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen
+              referrerpolicy="strict-origin-when-cross-origin"
+            />
+            <button class="btn btn-sm stop" @click="playing = false"><Icon name="x" :size="16" /> Close trailer</button>
           </div>
-          <div class="body">
+          <div v-else class="hero" :data-title="movie.backdrop ? '' : movie.title" :style="{ '--bg': posterGradient(movie.id), backgroundImage: movie.backdrop ? `url(${movie.backdrop})` : 'none' }">
+            <span class="slug">Reel {{ String(movie.id).padStart(5, '0') }} · {{ movie.genres.join(' / ') }}</span>
+            <button v-if="trailer" class="play-badge" :aria-label="`Play the trailer for ${movie.title}`" @click="playTrailer">
+              <span class="tri" aria-hidden="true" /> Play trailer
+            </button>
+          </div>
+          <div class="body" :class="{ 'after-player': playing && trailer }">
             <div class="poster"><MoviePoster :movie="movie" large /></div>
             <div class="info">
               <h2>{{ movie.title }}</h2>
@@ -89,7 +115,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
               </div>
 
               <div class="actions">
-                <button class="btn" :class="state.inWatchlist ? 'btn-ghost' : 'btn-primary'" @click="ui.toggleWatchlist(movie)">
+                <button v-if="trailer" class="btn btn-primary" @click="playing ? (playing = false) : playTrailer()">
+                  <span class="tri sm" aria-hidden="true" /> {{ playing ? 'Stop trailer' : 'Play trailer' }}
+                </button>
+                <button class="btn" :class="state.inWatchlist || trailer ? 'btn-ghost' : 'btn-primary'" @click="ui.toggleWatchlist(movie)">
                   <Icon :name="state.inWatchlist ? 'check' : 'plus'" :size="18" />
                   {{ state.inWatchlist ? 'In watchlist' : 'Add to watchlist' }}
                 </button>
@@ -135,6 +164,21 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
 }
 .hero::after { content: ''; position: absolute; inset: 0; background-image: var(--halftone); background-size: 7px 7px; opacity: 0.5; mix-blend-mode: multiply; }
 .slug { position: absolute; left: 36px; top: 22px; z-index: 1; padding: 6px 10px; background: var(--paper); border: 2px solid var(--ink); font: 700 11.5px/1 var(--mono); text-transform: uppercase; letter-spacing: 0.1em; }
+/* trailer player replaces the banner: 16:9, black, like a projection screen */
+.player { position: relative; aspect-ratio: 16 / 9; background: #000; border-bottom: 2px solid var(--ink); }
+.player iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.stop { position: absolute; left: 16px; top: 16px; z-index: 2; }
+.body.after-player { margin-top: 0; padding-top: 28px; }
+.body.after-player .info { padding-top: 0; }
+.play-badge {
+  position: absolute; left: 36px; bottom: 22px; z-index: 2; display: inline-flex; align-items: center; gap: 10px; padding: 10px 16px 10px 12px;
+  background: var(--red); color: #fff8ec; border: 2px solid var(--ink); border-radius: 3px; box-shadow: 4px 4px 0 var(--ink);
+  font: 700 13px var(--mono); text-transform: uppercase; letter-spacing: 0.08em; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+}
+.play-badge:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--ink); }
+/* a printed "play" triangle */
+.tri { width: 0; height: 0; border-style: solid; border-width: 8px 0 8px 13px; border-color: transparent transparent transparent currentColor; }
+.tri.sm { border-width: 6px 0 6px 10px; }
 .body { display: grid; grid-template-columns: 230px 1fr; gap: 36px; padding: 0 36px 34px; margin-top: -120px; position: relative; }
 .poster { border: 2px solid var(--ink); border-radius: 3px; overflow: hidden; box-shadow: var(--hard-lg); align-self: start; transform: rotate(-2deg); }
 .info { padding-top: 136px; display: grid; gap: 14px; align-content: start; }
@@ -161,6 +205,7 @@ h2 { font-size: clamp(38px, 5vw, 66px); font-weight: 900; }
   .info { padding-top: 0; }
   .hero { height: 170px; }
   .slug { left: 20px; }
+  .play-badge { left: auto; right: 20px; bottom: 100px; }
   .similar h3, .grid { margin-left: 20px; margin-right: 20px; padding: 0; }
 }
 </style>

@@ -166,6 +166,39 @@ describe('AuthView (Google-only sign-in)', () => {
   });
 });
 
+describe('MovieModal trailers', () => {
+  const MovieModal = () => import('../src/components/MovieModal.vue').then((m) => m.default);
+  async function openWith(details) {
+    Movies.details.mockResolvedValue({ movie, similar: [], interaction: { reaction: null, watched: false, inWatchlist: false }, ...details });
+    const w = mount(await MovieModal(), { global: { plugins: [pinia], stubs }, attachTo: document.body });
+    useUi().openMovie(movie.id);
+    await flushPromises();
+    return w;
+  }
+
+  it('loads nothing from YouTube until Play is pressed, then plays in the privacy-enhanced player', async () => {
+    const w = await openWith({ trailer: { key: 'abcdefghijk', name: 'Official Trailer' } });
+    expect(w.find('iframe').exists()).toBe(false);
+    await w.find('.play-badge').trigger('click');
+    const iframe = w.find('iframe');
+    expect(iframe.attributes('src')).toBe('https://www.youtube-nocookie.com/embed/abcdefghijk?autoplay=1&rel=0&playsinline=1');
+    expect(iframe.attributes('referrerpolicy')).toBe('strict-origin-when-cross-origin'); // YouTube refuses to play without a referrer
+    expect(iframe.attributes('title')).toBe('Toy Story: Official Trailer');
+    expect(w.find('.close').exists()).toBe(false); // the window's ✕ would cover YouTube's controls
+    await w.find('.stop').trigger('click');
+    expect(w.find('iframe').exists()).toBe(false);
+    expect(w.find('.close').exists()).toBe(true);
+    w.unmount();
+  });
+
+  it('shows no trailer controls when the film has no trailer', async () => {
+    const w = await openWith({ trailer: null });
+    expect(w.find('.play-badge').exists()).toBe(false);
+    expect(w.text()).not.toContain('Play trailer');
+    w.unmount();
+  });
+});
+
 describe('MovieCard', () => {
   const mountCard = () => mount(MovieCard, { props: { movie }, global: { plugins: [pinia] } });
 

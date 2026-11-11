@@ -32,7 +32,8 @@ export function createApp({ recommender, firebase }) {
           fontSrc: ["'self'", 'https://fonts.gstatic.com'],
           scriptSrc: ["'self'", 'https://apis.google.com'],
           connectSrc: ["'self'", 'https://identitytoolkit.googleapis.com', 'https://securetoken.googleapis.com', ...emulator],
-          frameSrc: [authOrigin, ...emulator],
+          // Trailers play in YouTube's privacy-enhanced player, loaded only when someone presses Play.
+          frameSrc: [authOrigin, 'https://www.youtube-nocookie.com', ...emulator],
         },
       },
       // The Google sign-in popup must be able to report back to this window.

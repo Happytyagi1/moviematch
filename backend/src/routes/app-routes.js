@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { User, MOODS, ERAS, DISCOVERY, AUDIENCE } from '../models/User.js';
 import { Interaction } from '../models/Interaction.js';
 import { HttpError, requireAuth, validate } from '../middleware/index.js';
-import { enrich } from '../services/tmdb.js';
+import { enrich, trailerFor } from '../services/tmdb.js';
 
 /** All authenticated, recommender-backed routes. */
 export function appRoutes(rec) {
@@ -152,12 +152,13 @@ export function appRoutes(rec) {
   r.get('/movies/:id', requireAuth, async (req, res) => {
     const movie = rec.getMovie(req.params.id);
     if (!movie) throw new HttpError(404, 'Movie not found');
-    const [[enriched], similar, interaction] = await Promise.all([
+    const [[enriched], similar, interaction, trailer] = await Promise.all([
       enrich([movie]),
       enrich(rec.similar(movie.id, 12)),
       Interaction.findOne({ user: req.userId, movieId: movie.id }).select('reaction watched inWatchlist -_id').lean(),
+      trailerFor(movie), // { key: YouTube id, name } or null
     ]);
-    res.json({ movie: enriched, similar, interaction: interaction || { reaction: null, watched: false, inWatchlist: false } });
+    res.json({ movie: enriched, similar, trailer, interaction: interaction || { reaction: null, watched: false, inWatchlist: false } });
   });
 
   const interactionSchema = z

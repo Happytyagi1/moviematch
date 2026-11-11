@@ -44,7 +44,8 @@ const auth = useAuth();
       <ul>
         <li><b>Google Cloud</b>: sign-in (Google Identity Platform) and hosting (Cloud Run), in the United States.</li>
         <li><b>MongoDB Atlas</b>: our database, hosted on Google Cloud in the United States (Iowa).</li>
-        <li><b>TMDB (The Movie Database)</b>: film posters and summaries. Your browser loads poster images directly from TMDB, so TMDB can see your IP address. We never send TMDB your account details.</li>
+        <li><b>TMDB (The Movie Database)</b>: film posters, summaries and trailer listings. Your browser loads poster images directly from TMDB, so TMDB can see your IP address. We never send TMDB your account details.</li>
+        <li><b>YouTube (Google)</b>: trailers. Nothing is loaded from YouTube until you press <i>Play trailer</i>; the video then plays in YouTube's privacy-enhanced mode, and YouTube's own privacy policy applies to that playback.</li>
       </ul>
       <p>These providers process data on our behalf under their own security and privacy terms.</p>
 

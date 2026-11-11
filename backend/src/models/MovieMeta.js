@@ -8,6 +8,11 @@ const movieMetaSchema = new mongoose.Schema(
     backdropPath: String,
     overview: String,
     runtime: Number,
+    detailsFetched: Boolean, // poster/overview/runtime looked up (even if TMDB had none)
+    // Best YouTube trailer from TMDB (null = checked, none found; re-checked monthly).
+    trailerKey: String,
+    trailerName: String,
+    trailerCheckedAt: Date,
     fetchedAt: { type: Date, default: Date.now },
   },
   { versionKey: false },
