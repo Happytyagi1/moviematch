@@ -1,0 +1,7 @@
+# Normalise line endings in the repo; keep LF where Linux tools (bash, Docker, Cloud Build) read the files.
+* text=auto
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yaml text eol=lf
+*.bin binary
+*.png binary
