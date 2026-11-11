@@ -71,6 +71,7 @@ export const Movies = {
   search: (q, signal, limit) => api(`/movies/search${qs({ q, limit })}`, { signal }),
   details: (id) => api(`/movies/${id}`),
   trailer: (id, signal) => api(`/movies/${id}/trailer`, { signal }),
+  providers: (id, region, signal) => api(`/movies/${id}/providers${qs({ region })}`, { signal }),
   interact: (id, patch) => api(`/interactions/${id}`, { method: 'PUT', body: patch }),
   library: () => api('/library'),
   libraryState: () => api('/library/state'),

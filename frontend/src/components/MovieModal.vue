@@ -5,6 +5,7 @@ import { Movies } from '../api.js';
 import MoviePoster from './MoviePoster.vue';
 import MovieCard from './MovieCard.vue';
 import Icon from './Icon.vue';
+import WhereToWatch from './WhereToWatch.vue';
 import { formatRuntime, posterGradient, stars } from '../utils/movie.js';
 
 const ui = useUi();
@@ -23,6 +24,17 @@ const playing = ref(false);
 const trailerSrc = computed(() =>
   trailer.value ? `https://www.youtube-nocookie.com/embed/${encodeURIComponent(trailer.value.key)}?autoplay=1&rel=0&playsinline=1` : '',
 );
+// "Where to watch" panel (streaming / rent / buy), loaded only when opened.
+const showWhere = ref(false);
+const wherePanel = ref(null);
+async function toggleWhere() {
+  showWhere.value = !showWhere.value;
+  if (showWhere.value) {
+    await nextTick();
+    wherePanel.value?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
 function playTrailer() {
   playing.value = true;
   dialog.value?.scrollTo?.({ top: 0, behavior: 'smooth' });
@@ -32,6 +44,7 @@ async function load(id) {
   data.value = null;
   error.value = '';
   playing.value = false;
+  showWhere.value = false;
   try {
     const res = await Movies.details(id);
     if (ui.modalMovieId !== id) return; // user already opened another movie
@@ -42,6 +55,11 @@ async function load(id) {
     ui.modalAutoplay = false;
     await nextTick();
     dialog.value?.scrollTo?.({ top: 0 }); // scrolling is cosmetic: never let it turn a loaded film into an error
+    // Opened from a "Where to watch" button elsewhere: expand that panel and scroll to it.
+    if (ui.modalShowProviders) {
+      ui.modalShowProviders = false;
+      await toggleWhere();
+    }
   } catch (e) {
     error.value = e.message;
   }
@@ -121,16 +139,20 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
                 <button v-if="trailer" class="btn btn-primary" @click="playing ? (playing = false) : playTrailer()">
                   <span class="tri sm" aria-hidden="true" /> {{ playing ? 'Stop trailer' : 'Play trailer' }}
                 </button>
-                <button class="btn" :class="state.inWatchlist || trailer ? 'btn-ghost' : 'btn-primary'" @click="ui.toggleWatchlist(movie)">
+                <button class="btn" :class="{ 'btn-primary': state.inWatchlist }" :aria-pressed="!!state.inWatchlist" @click="ui.toggleWatchlist(movie)">
                   <Icon :name="state.inWatchlist ? 'check' : 'plus'" :size="18" />
                   {{ state.inWatchlist ? 'In watchlist' : 'Add to watchlist' }}
                 </button>
                 <button class="icon-btn lg" :class="{ active: state.reaction === 'like' }" :aria-pressed="state.reaction === 'like'" aria-label="I like this" @click="ui.react(movie, 'like')"><Icon name="up" /></button>
                 <button class="icon-btn lg" :class="{ active: state.reaction === 'dislike' }" :aria-pressed="state.reaction === 'dislike'" aria-label="Not for me" @click="ui.react(movie, 'dislike')"><Icon name="down" /></button>
-                <button class="btn btn-ghost" :aria-pressed="state.watched" @click="ui.toggleWatched(movie)">
+                <button class="btn" :class="{ 'btn-primary': state.watched }" :aria-pressed="!!state.watched" @click="ui.toggleWatched(movie)">
                   <Icon :name="state.watched ? 'check' : 'eye'" :size="18" /> {{ state.watched ? 'Watched' : 'Mark watched' }}
                 </button>
+                <button class="btn" :class="{ 'btn-primary': showWhere }" :aria-expanded="showWhere" aria-controls="where-panel" @click="toggleWhere">
+                  <Icon name="film" :size="18" /> Where to watch
+                </button>
               </div>
+              <div v-if="showWhere" id="where-panel" ref="wherePanel"><WhereToWatch :movie-id="movie.id" :title="movie.title" /></div>
               <a v-if="movie.imdbId" class="imdb" :href="`https://www.imdb.com/title/tt${movie.imdbId}/`" target="_blank" rel="noopener">View on IMDb ↗</a>
             </div>
           </div>

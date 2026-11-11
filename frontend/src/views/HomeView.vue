@@ -164,13 +164,14 @@ onMounted(() => {
         </blockquote>
         <p v-if="featured.overview" class="overview r5">{{ featured.overview }}</p>
         <div class="hero-actions r6">
-          <button class="btn btn-primary btn-lg" @click="ui.toggleWatchlist(featured)">
+          <button class="btn btn-lg" :class="{ 'btn-primary': featuredState.inWatchlist }" :aria-pressed="!!featuredState.inWatchlist" @click="ui.toggleWatchlist(featured)">
             <Icon :name="featuredState.inWatchlist ? 'check' : 'plus'" :size="18" />
             {{ featuredState.inWatchlist ? 'In your watchlist' : 'Add to watchlist' }}
           </button>
           <button v-if="featuredTrailer" class="btn btn-primary btn-lg btn-trailer" @click="ui.openMovie(featured.id, { playTrailer: true })">
             <span class="tri" aria-hidden="true" /> Play trailer
           </button>
+          <button class="btn btn-lg" @click="ui.openMovie(featured.id, { showProviders: true })"><Icon name="film" :size="18" /> Where to watch</button>
           <button class="btn btn-lg" @click="ui.openMovie(featured.id)">More info</button>
         </div>
       </div>

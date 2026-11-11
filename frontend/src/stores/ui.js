@@ -9,6 +9,7 @@ export const useUi = defineStore('ui', {
     toasts: [],
     modalMovieId: null,
     modalAutoplay: false, // open the details window with the trailer already playing
+    modalShowProviders: false, // open it with "Where to watch" already expanded
     interactions: {}, // movieId -> { reaction, inWatchlist, watched }
   }),
   actions: {
@@ -20,13 +21,15 @@ export const useUi = defineStore('ui', {
     dismiss(id) {
       this.toasts = this.toasts.filter((t) => t.id !== id);
     },
-    openMovie(id, { playTrailer = false } = {}) {
+    openMovie(id, { playTrailer = false, showProviders = false } = {}) {
       this.modalAutoplay = playTrailer;
+      this.modalShowProviders = showProviders;
       this.modalMovieId = id;
     },
     closeMovie() {
       this.modalMovieId = null;
       this.modalAutoplay = false;
+      this.modalShowProviders = false;
     },
     stateOf(id) {
       return this.interactions[id] || { reaction: null, inWatchlist: false, watched: false };

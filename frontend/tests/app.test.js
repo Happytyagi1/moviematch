@@ -10,7 +10,7 @@ vi.mock('../src/api.js', async (orig) => {
     Auth: { ...real.Auth, config: vi.fn(), session: vi.fn(), me: vi.fn(), logout: vi.fn(), logoutAll: vi.fn(), deleteAccount: vi.fn() },
     Movies: {
       options: vi.fn(), seeds: vi.fn(), savePreferences: vi.fn(), home: vi.fn(), recommendations: vi.fn(),
-      search: vi.fn(), details: vi.fn(), trailer: vi.fn(), interact: vi.fn(), library: vi.fn(), libraryState: vi.fn(), favorites: vi.fn(), model: vi.fn(),
+      search: vi.fn(), details: vi.fn(), trailer: vi.fn(), providers: vi.fn(), interact: vi.fn(), library: vi.fn(), libraryState: vi.fn(), favorites: vi.fn(), model: vi.fn(),
     },
   };
 });
@@ -199,6 +199,51 @@ describe('MovieModal trailers', () => {
     expect(w.find('iframe').attributes('src')).toContain('youtube-nocookie.com/embed/abcdefghijk');
     expect(useUi().modalAutoplay).toBe(false); // one-shot: the next film opens normally
     w.unmount();
+  });
+
+  it('watchlist and "Mark watched" buttons are white until selected, then red', async () => {
+    const w = await openWith({ trailer: null });
+    const btn = (re) => w.findAll('.actions .btn').find((b) => re.test(b.text()));
+    expect(btn(/watchlist/i).classes()).not.toContain('btn-primary');
+    expect(btn(/watched/i).classes()).not.toContain('btn-primary');
+    useUi().remember(movie.id, { inWatchlist: true, watched: true });
+    await flushPromises();
+    expect(btn(/watchlist/i).classes()).toContain('btn-primary');
+    expect(btn(/watched/i).classes()).toContain('btn-primary');
+    w.unmount();
+  });
+
+  it('"Where to watch" lists streaming, rent and buy options with the JustWatch credit', async () => {
+    Movies.providers.mockResolvedValue({
+      providers: {
+        region: 'CA', regions: ['CA', 'US'], link: 'https://www.themoviedb.org/movie/862/watch?locale=CA',
+        stream: [{ id: 337, name: 'Disney Plus', logo: 'https://image.tmdb.org/t/p/w92/a.png' }], free: [], ads: [],
+        rent: [{ id: 2, name: 'Apple TV Store', logo: null }], buy: [],
+      },
+    });
+    const w = await openWith({ trailer: null });
+    expect(Movies.providers).not.toHaveBeenCalled(); // nothing fetched until asked
+    await w.findAll('.actions .btn').find((b) => /where to watch/i.test(b.text())).trigger('click');
+    await flushPromises();
+    const text = w.find('.where').text();
+    expect(text).toContain('Disney Plus');
+    expect(text).toContain('Apple TV Store');
+    expect(text).not.toContain('Buy'); // empty groups are hidden
+    expect(text).toContain('JustWatch'); // attribution required by TMDB
+    // Logos are links: Apple TV → its search for the title; Disney+ → the TMDB page (no reliable search URL).
+    const hrefs = w.findAll('a.provider').map((a) => a.attributes('href'));
+    expect(hrefs).toContain('https://tv.apple.com/search?term=Toy%20Story');
+    expect(hrefs).toContain('https://www.themoviedb.org/movie/862/watch?locale=CA');
+    expect(w.findAll('a.provider').every((a) => a.attributes('rel') === 'noopener noreferrer' && a.attributes('target') === '_blank')).toBe(true);
+    w.unmount();
+  });
+
+  it('watchLink: Amazon channels open Prime Video; unknown services fall back to TMDB', async () => {
+    const { watchLink } = await import('../src/utils/watchLinks.js');
+    expect(watchLink('Paramount+ Amazon Channel', 'Inception', null).href).toBe('https://www.primevideo.com/search?phrase=Inception');
+    expect(watchLink('Netflix', 'Amélie & Co', null).href).toBe('https://www.netflix.com/search?q=Am%C3%A9lie%20%26%20Co');
+    expect(watchLink('CosmoGo', 'Inception', 'https://www.themoviedb.org/x')).toEqual({ href: 'https://www.themoviedb.org/x', viaSearch: false });
+    expect(watchLink('CosmoGo', 'Inception', null)).toBeNull();
   });
 
   it('shows no trailer controls when the film has no trailer', async () => {

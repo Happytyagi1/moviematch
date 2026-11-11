@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { User, MOODS, ERAS, DISCOVERY, AUDIENCE } from '../models/User.js';
 import { Interaction } from '../models/Interaction.js';
 import { HttpError, requireAuth, validate } from '../middleware/index.js';
-import { enrich, trailerFor } from '../services/tmdb.js';
+import { enrich, trailerFor, watchProviders } from '../services/tmdb.js';
 
 /** All authenticated, recommender-backed routes. */
 export function appRoutes(rec) {
@@ -154,6 +154,14 @@ export function appRoutes(rec) {
     const movie = rec.getMovie(req.params.id);
     if (!movie) throw new HttpError(404, 'Movie not found');
     res.json({ trailer: await trailerFor(movie) });
+  });
+
+  /** Where to watch (stream / rent / buy) in one country. Data: JustWatch, via TMDB. */
+  r.get('/movies/:id/providers', requireAuth, validate(z.object({ region: z.string().regex(/^[A-Za-z]{2}$/).optional() }), 'query'), async (req, res) => {
+    const movie = rec.getMovie(req.params.id);
+    if (!movie) throw new HttpError(404, 'Movie not found');
+    const providers = await watchProviders(movie, req.validQuery.region?.toUpperCase());
+    res.json({ providers });
   });
 
   r.get('/movies/:id', requireAuth, async (req, res) => {

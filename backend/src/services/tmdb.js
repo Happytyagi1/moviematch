@@ -138,4 +138,53 @@ export async function trailerFor(movie) {
   return p;
 }
 
-export const _test = { memory, trailerMemory };
+/* ---------------------------------------------------- where to watch (JustWatch via TMDB) */
+// Availability changes often, so it's kept in memory only, for 12 hours per film.
+// TMDB's terms require crediting JustWatch wherever this data is shown.
+const PROVIDERS_TTL_MS = 12 * 3600 * 1000;
+const providerMemory = new Map(); // movieId -> { at, results }
+const providerInflight = new Map();
+const REGION = /^[A-Z]{2}$/;
+const KINDS = { flatrate: 'stream', free: 'free', ads: 'ads', rent: 'rent', buy: 'buy' };
+
+/** Shape one country's TMDB entry: grouped, sorted by TMDB's display priority, logos as full URLs. */
+export function shapeProviders(entry) {
+  const out = { link: typeof entry?.link === 'string' && entry.link.startsWith('https://') ? entry.link : null };
+  for (const [tmdbKey, ours] of Object.entries(KINDS)) {
+    out[ours] = (entry?.[tmdbKey] || [])
+      .slice()
+      .sort((a, b) => (a.display_priority ?? 999) - (b.display_priority ?? 999))
+      .map((p) => ({
+        id: p.provider_id,
+        name: String(p.provider_name || '').slice(0, 60),
+        logo: typeof p.logo_path === 'string' && /^\/[\w.-]+$/.test(p.logo_path) ? `${IMG}/w92${p.logo_path}` : null,
+      }))
+      .filter((p) => p.name);
+  }
+  return out;
+}
+
+/**
+ * Where a film can be watched in `region` (ISO 3166-1, e.g. "CA"), plus every region
+ * TMDB has data for, so the browser can offer a country picker.
+ * Returns null if TMDB isn't configured or is unreachable.
+ */
+export async function watchProviders(movie, region) {
+  if (!config.tmdbApiKey || !movie?.tmdbId) return null;
+  let cached = providerMemory.get(movie.id);
+  if (!cached || Date.now() - cached.at > PROVIDERS_TTL_MS) {
+    if (!providerInflight.has(movie.id)) {
+      providerInflight.set(movie.id, tmdbGet(`/movie/${movie.tmdbId}/watch/providers`).catch(() => null).finally(() => providerInflight.delete(movie.id)));
+    }
+    const j = await providerInflight.get(movie.id);
+    if (!j) return null;
+    cached = { at: Date.now(), results: j.results || {} };
+    if (providerMemory.size >= MAX_MEMORY) providerMemory.delete(providerMemory.keys().next().value);
+    providerMemory.set(movie.id, cached);
+  }
+  const regions = Object.keys(cached.results).filter((r) => REGION.test(r)).sort();
+  const code = REGION.test(region || '') ? region : 'US';
+  return { region: code, regions, ...shapeProviders(cached.results[code]) };
+}
+
+export const _test = { memory, trailerMemory, providerMemory };
