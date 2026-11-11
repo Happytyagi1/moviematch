@@ -54,7 +54,10 @@ async function load(id) {
     if (ui.modalAutoplay && res.trailer) playing.value = true;
     ui.modalAutoplay = false;
     await nextTick();
-    dialog.value?.scrollTo?.({ top: 0 }); // scrolling is cosmetic: never let it turn a loaded film into an error
+    // Back to the top for each film. Scrolling is cosmetic: never let it turn a loaded film into an error.
+    // (On desktop the card scrolls; on phones the full-screen sheet's backdrop does.)
+    dialog.value?.scrollTo?.({ top: 0 });
+    dialog.value?.parentElement?.scrollTo?.({ top: 0 });
     // Opened from a "Where to watch" button elsewhere: expand that panel and scroll to it.
     if (ui.modalShowProviders) {
       ui.modalShowProviders = false;
@@ -80,7 +83,7 @@ watch(
       }
       load(id);
       await nextTick();
-      dialog.value?.focus();
+      dialog.value?.focus({ preventScroll: true }); // focusing mid-animation would nudge the sheet down
     } else {
       playing.value = false; // closing the window stops the video
       document.body.style.overflow = '';
@@ -226,7 +229,9 @@ h2 { font-size: clamp(38px, 5vw, 66px); font-weight: 900; }
 .modal-enter-from .dialog { transform: translateY(40px) rotate(1.5deg); }
 @media (max-width: 720px) {
   /* Phones: a full-screen sheet rather than a floating card. */
-  .backdrop { padding: 0; place-items: stretch; }
+  /* block (not stretched grid): the sheet must grow with its content so the backdrop can scroll.
+     A stretched grid item with overflow:hidden gets clamped to the screen height. */
+  .backdrop { padding: 0; display: block; }
   .dialog { width: 100%; min-height: 100%; border: 0; border-radius: 0; box-shadow: none; }
   .modal-enter-from .dialog { transform: translateY(60px); }
   /* the close button stays reachable while scrolling a long page */
