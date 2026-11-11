@@ -10,7 +10,7 @@ vi.mock('../src/api.js', async (orig) => {
     Auth: { ...real.Auth, config: vi.fn(), session: vi.fn(), me: vi.fn(), logout: vi.fn(), logoutAll: vi.fn(), deleteAccount: vi.fn() },
     Movies: {
       options: vi.fn(), seeds: vi.fn(), savePreferences: vi.fn(), home: vi.fn(), recommendations: vi.fn(),
-      search: vi.fn(), details: vi.fn(), trailer: vi.fn(), providers: vi.fn(), interact: vi.fn(), library: vi.fn(), libraryState: vi.fn(), favorites: vi.fn(), model: vi.fn(),
+      search: vi.fn(), details: vi.fn(), trailer: vi.fn(), providers: vi.fn(), browse: vi.fn(), interact: vi.fn(), library: vi.fn(), libraryState: vi.fn(), favorites: vi.fn(), model: vi.fn(),
     },
   };
 });
@@ -80,6 +80,10 @@ describe('router guards', () => {
   });
   it('skips landing/sign-in for signed-in users', async () => {
     expect((await go('/signin', { id: 'u', name: 'A', onboarded: true })).name).toBe('home');
+  });
+  it('search results are open to guests and signed-in users', async () => {
+    expect((await go('/search?q=matrix')).name).toBe('search');
+    expect((await go('/search?q=matrix', { id: 'u', name: 'A', onboarded: true })).name).toBe('search');
   });
   it('the privacy policy is reachable by everyone (guests, new and existing users)', async () => {
     expect((await go('/privacy')).name).toBe('privacy');
@@ -256,6 +260,7 @@ describe('MovieModal trailers', () => {
 
 describe('MovieCard', () => {
   const mountCard = () => mount(MovieCard, { props: { movie }, global: { plugins: [pinia] } });
+  const signIn = () => { useAuth().user = { id: 'u', name: 'Ada', onboarded: true }; };
 
   it('renders title, match and the reason', () => {
     const w = mountCard();
@@ -265,6 +270,7 @@ describe('MovieCard', () => {
   });
 
   it('adds to watchlist optimistically', async () => {
+    signIn();
     let resolve;
     Movies.interact.mockReturnValue(new Promise((r) => (resolve = r)));
     const w = mountCard();
@@ -276,6 +282,7 @@ describe('MovieCard', () => {
   });
 
   it('rolls back and shows a toast when the server fails', async () => {
+    signIn();
     Movies.interact.mockRejectedValue(new ApiError(500, 'Something went wrong'));
     const w = mountCard();
     await w.find('[aria-label="I like this"]').trigger('click');
@@ -289,6 +296,58 @@ describe('MovieCard', () => {
     const w = mountCard();
     await w.find('.poster-btn').trigger('click');
     expect(useUi().modalMovieId).toBe(1);
+  });
+});
+
+describe('guests (browsing the landing page without an account)', () => {
+  const mountCard = () => mount(MovieCard, { props: { movie }, global: { plugins: [pinia] } });
+  beforeEach(() => sessionStorage.clear());
+
+  it.each([
+    ['Add to watchlist', 'watchlist', { inWatchlist: true }],
+    ['I like this', 'like', { reaction: 'like' }],
+    ['Not for me', 'dislike', { reaction: 'dislike' }],
+  ])('pressing "%s" asks them to sign up (with a reason) and remembers the action', async (label, intent, patch) => {
+    const w = mountCard();
+    await w.find(`[aria-label="${label}"]`).trigger('click');
+    const ui = useUi();
+    expect(Movies.interact).not.toHaveBeenCalled(); // nothing is sent without an account
+    expect(ui.signInPrompt).toEqual({ title: 'Toy Story', intent });
+    expect(JSON.parse(sessionStorage.getItem('mm_pending_action'))).toMatchObject({ movieId: 1, title: 'Toy Story', patch });
+  });
+
+  it('after signing in, the remembered action is applied once, with a confirmation', async () => {
+    Movies.interact.mockResolvedValue({ interaction: { inWatchlist: true, reaction: null, watched: false } });
+    const w = mountCard();
+    await w.find('[aria-label="Add to watchlist"]').trigger('click');
+    useAuth().user = { id: 'u', name: 'Ada', onboarded: false };
+    const ui = useUi();
+    await ui.applyPendingAction();
+    expect(Movies.interact).toHaveBeenCalledWith(1, { inWatchlist: true });
+    expect(ui.toasts.at(-1)).toMatchObject({ type: 'success', text: 'Added “Toy Story” to your watchlist' });
+    await ui.applyPendingAction(); // second call: nothing left to apply
+    expect(Movies.interact).toHaveBeenCalledTimes(1);
+  });
+
+  it('the search box suggests popular films to guests (no personal picks)', async () => {
+    Movies.browse.mockResolvedValue({ sections: [{ id: 'popular', title: 'Popular right now', items: [{ ...movie, match: undefined, reason: undefined }] }] });
+    const HeaderSearch = (await import('../src/components/HeaderSearch.vue')).default;
+    const router = createAppRouter(createMemoryHistory());
+    await router.push('/');
+    const w = mount(HeaderSearch, { global: { plugins: [pinia, router] }, attachTo: document.body });
+    await w.find('input').trigger('focus');
+    await flushPromises();
+    expect(w.find('.suggest-head').text()).toBe('Popular right now');
+    expect(w.text()).toContain('Toy Story');
+    expect(Movies.recommendations).not.toHaveBeenCalled(); // personal picks need an account
+    w.unmount();
+  });
+
+  it('the sign-up page explains why it appeared', async () => {
+    const router = createAppRouter(createMemoryHistory());
+    await router.push({ name: 'signup', query: { film: 'Toy Story', intent: 'like' } });
+    const w = mount(AuthView, { props: { mode: 'signup' }, global: { plugins: [pinia, router], stubs } });
+    expect(w.find('.alert.info').text()).toContain('Create a free account to like “Toy Story”');
   });
 });
 

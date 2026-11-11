@@ -67,6 +67,34 @@ describe('health & public', () => {
     expect(res.headers['x-content-type-options']).toBe('nosniff');
   });
 
+  it('guests can browse: landing rows, film details and search, with nothing personal', async () => {
+    const browse = await request(app).get('/api/browse');
+    expect(browse.status).toBe(200);
+    expect(browse.body.sections.length).toBeGreaterThanOrEqual(5);
+    const all = browse.body.sections.flatMap((s) => s.items);
+    expect(new Set(all.map((m) => m.id)).size).toBe(all.length); // no film repeated across rows
+    expect(all.some((m) => 'match' in m || 'reason' in m)).toBe(false); // no "% match" / "because you liked" for guests
+
+    const details = await request(app).get(`/api/movies/${id('Toy Story')}`);
+    expect(details.status).toBe(200);
+    expect(details.body.movie.title).toBe('Toy Story');
+    expect(details.body.interaction).toEqual({ reaction: null, watched: false, inWatchlist: false });
+    expect((await request(app).get('/api/movies/search?q=matrix')).body.movies[0].title).toBe('The Matrix');
+  });
+
+  it('guests still cannot like, save or see personal pages', async () => {
+    expect((await request(app).put(`/api/interactions/${id('Up')}`).send({ inWatchlist: true })).status).toBe(401);
+    for (const path of ['/api/recommendations', '/api/recommendations/home', '/api/library', '/api/library/state']) {
+      expect((await request(app).get(path)).status).toBe(401);
+    }
+  });
+
+  it('signed-in users still get their own state on film details', async () => {
+    const agent = await signUp();
+    await agent.put(`/api/interactions/${id('Up')}`).send({ inWatchlist: true }).expect(200);
+    expect((await agent.get(`/api/movies/${id('Up')}`)).body.interaction.inWatchlist).toBe(true);
+  });
+
   it('unknown API routes return JSON 404', async () => {
     const res = await request(app).get('/api/nope');
     expect(res.status).toBe(404);

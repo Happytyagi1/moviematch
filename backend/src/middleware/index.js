@@ -45,6 +45,20 @@ export async function requireAuth(req, _res, next) {
 }
 
 /**
+ * For pages guests can browse too (film details, trailers, where to watch, search):
+ * a valid session sets req.userId as usual; anything else just continues as a guest.
+ */
+export function optionalAuth(req, res, next) {
+  requireAuth(req, res, (err) => {
+    if (err) {
+      req.userId = undefined;
+      req.firebaseUid = undefined;
+    }
+    next();
+  });
+}
+
+/**
  * CSRF defence-in-depth on top of SameSite=Strict cookies: browsers always send
  * Origin / Sec-Fetch-Site on state-changing requests, so reject anything that
  * comes from another site.

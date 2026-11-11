@@ -19,14 +19,27 @@ const loading = ref(false);
 const QUERY_MESSAGES = {
   expired: ['error', 'Your session expired — please sign in again.'],
 };
-// Arriving from a poster click on the reel: "?film=<title>".
-const filmNotice = () => (typeof route.query.film === 'string' && route.query.film
-  ? { type: 'info', text: `Sign in first to see “${route.query.film.slice(0, 120)}” and how well it matches your taste.` }
-  : null);
+// Arriving because of a film: a poster on the reel ("?film=<title>"), or a guest pressing
+// like / dislike / watchlist / watched ("&intent=..."), which is saved for after sign-in.
+const INTENT_TEXT = {
+  watchlist: (t) => `Create a free account to add “${t}” to your watchlist. We’ll save it as soon as you’re in.`,
+  like: (t) => `Create a free account to like “${t}”, and we’ll find more films like it. We’ll save it as soon as you’re in.`,
+  dislike: (t) => `Create a free account so we can show you fewer films like “${t}”. We’ll save it as soon as you’re in.`,
+  watched: (t) => `Create a free account to keep track of what you’ve watched, starting with “${t}”.`,
+};
+const filmNotice = () => {
+  const film = typeof route.query.film === 'string' ? route.query.film.slice(0, 120) : '';
+  if (!film) return null;
+  const intent = INTENT_TEXT[route.query.intent];
+  return { type: 'info', text: intent ? intent(film) : `Sign in first to see “${film}” and how well it matches your taste.` };
+};
 const initial = route.query.expired ? QUERY_MESSAGES.expired : null;
 const notice = ref(initial ? { type: initial[0], text: initial[1] } : filmNotice());
 
-watch(() => props.mode, () => { notice.value = null; });
+// Switching between sign-in and sign-up keeps the reason they came (if any).
+watch(() => props.mode, () => { notice.value = filmNotice(); });
+// Carry next / film / intent across the "Sign in" ↔ "Create an account" links.
+const carryQuery = computed(() => Object.fromEntries(['next', 'film', 'intent'].filter((k) => typeof route.query[k] === 'string').map((k) => [k, route.query[k]])));
 // Clicking another poster while already on this page: update the message and focus the button.
 watch(
   () => route.query.film,
@@ -72,8 +85,8 @@ async function google() {
     </div>
 
     <p class="auth-foot">
-      <template v-if="isSignup">Already have an account? <RouterLink class="text-link" :to="{ name: 'signin', query: route.query.next ? { next: route.query.next } : {} }">Sign in</RouterLink></template>
-      <template v-else>New to MovieMatch? <RouterLink class="text-link" :to="{ name: 'signup', query: route.query.next ? { next: route.query.next } : {} }">Create an account</RouterLink></template>
+      <template v-if="isSignup">Already have an account? <RouterLink class="text-link" :to="{ name: 'signin', query: carryQuery }">Sign in</RouterLink></template>
+      <template v-else>New to MovieMatch? <RouterLink class="text-link" :to="{ name: 'signup', query: carryQuery }">Create an account</RouterLink></template>
     </p>
   </AuthShell>
 </template>

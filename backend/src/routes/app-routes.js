@@ -2,12 +2,27 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { User, MOODS, ERAS, DISCOVERY, AUDIENCE } from '../models/User.js';
 import { Interaction } from '../models/Interaction.js';
-import { HttpError, requireAuth, validate } from '../middleware/index.js';
+import rateLimit from 'express-rate-limit';
+import { config } from '../config.js';
+import { HttpError, optionalAuth, requireAuth, validate } from '../middleware/index.js';
 import { enrich, trailerFor, watchProviders } from '../services/tmdb.js';
 
-/** All authenticated, recommender-backed routes. */
+/**
+ * Recommender-backed routes. Most need a signed-in user; film browsing (details,
+ * trailers, where to watch, search, the guest rows) is open to guests too.
+ */
 export function appRoutes(rec) {
   const r = Router();
+  // Guest-reachable routes call TMDB on cache misses, so cap them per IP.
+  const publicLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: config.isTest ? 10_000 : 600,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { error: 'Too many requests, please slow down for a few minutes' },
+  });
+  /** Strip personal bits (match %, "because you liked…") for guest lists. */
+  const forGuests = (movies) => movies.map(({ match, reason, ...m }) => m);
   const genreEnum = z.enum(rec.genres);
   const movieIdList = z.array(z.number().int()).max(50).refine((ids) => ids.every((id) => rec.index.has(id)), 'Unknown movie');
 
@@ -145,32 +160,63 @@ export function appRoutes(rec) {
     res.json({ state: Object.fromEntries(docs.map(({ movieId, ...s }) => [movieId, s])) });
   });
 
-  r.get('/movies/search', requireAuth, validate(z.object({ q: z.string().trim().min(1).max(80), limit: z.coerce.number().int().min(1).max(60).default(24) }), 'query'), async (req, res) => {
+  /**
+   * Rows for the public landing page: the same for every visitor, so computed once an
+   * hour. Popular and well-rated titles with no personal profile behind them.
+   */
+  const BROWSE_TTL_MS = 3600 * 1000;
+  let browseCache = null;
+  r.get('/browse', publicLimiter, async (_req, res) => {
+    if (!browseCache || Date.now() - browseCache.at > BROWSE_TTL_MS) {
+      const shown = new Set();
+      const row = (id, title, opts) => {
+        const items = rec.recommend({ limit: 18, exclude: [...shown], ...opts });
+        items.forEach((m) => shown.add(m.id));
+        return { id, title, items };
+      };
+      const rows = [
+        row('popular', 'Popular right now', {}),
+        row('top-rated', 'Critics’ darlings', { topRated: true }),
+        row('comedy', 'Comedy', { genre: 'Comedy' }),
+        row('scifi', 'Science fiction', { genre: 'Sci-Fi' }),
+        row('animation', 'Animation', { genre: 'Animation' }),
+        row('thriller', 'Thrillers', { genre: 'Thriller' }),
+        row('romance', 'Romance', { genre: 'Romance' }),
+        row('gems', 'Hidden gems', { hiddenGems: true }),
+      ].filter((s) => s.items.length);
+      const sections = await Promise.all(rows.map(async (s) => ({ ...s, items: forGuests(await enrich(s.items)) })));
+      browseCache = { at: Date.now(), sections };
+    }
+    res.set('Cache-Control', 'public, max-age=600').json({ sections: browseCache.sections });
+  });
+
+  r.get('/movies/search', publicLimiter, optionalAuth, validate(z.object({ q: z.string().trim().min(1).max(80), limit: z.coerce.number().int().min(1).max(60).default(24) }), 'query'), async (req, res) => {
     res.json({ movies: await enrich(rec.search(req.validQuery.q, req.validQuery.limit)) });
   });
 
   /** Just the trailer (cheap; cached per film): lets pages show a "Play trailer" button only when there is one. */
-  r.get('/movies/:id/trailer', requireAuth, async (req, res) => {
+  r.get('/movies/:id/trailer', publicLimiter, optionalAuth, async (req, res) => {
     const movie = rec.getMovie(req.params.id);
     if (!movie) throw new HttpError(404, 'Movie not found');
     res.json({ trailer: await trailerFor(movie) });
   });
 
   /** Where to watch (stream / rent / buy) in one country. Data: JustWatch, via TMDB. */
-  r.get('/movies/:id/providers', requireAuth, validate(z.object({ region: z.string().regex(/^[A-Za-z]{2}$/).optional() }), 'query'), async (req, res) => {
+  r.get('/movies/:id/providers', publicLimiter, optionalAuth, validate(z.object({ region: z.string().regex(/^[A-Za-z]{2}$/).optional() }), 'query'), async (req, res) => {
     const movie = rec.getMovie(req.params.id);
     if (!movie) throw new HttpError(404, 'Movie not found');
     const providers = await watchProviders(movie, req.validQuery.region?.toUpperCase());
     res.json({ providers });
   });
 
-  r.get('/movies/:id', requireAuth, async (req, res) => {
+  r.get('/movies/:id', publicLimiter, optionalAuth, async (req, res) => {
     const movie = rec.getMovie(req.params.id);
     if (!movie) throw new HttpError(404, 'Movie not found');
     const [[enriched], similar, interaction, trailer] = await Promise.all([
       enrich([movie]),
       enrich(rec.similar(movie.id, 12)),
-      Interaction.findOne({ user: req.userId, movieId: movie.id }).select('reaction watched inWatchlist -_id').lean(),
+      // Guests have no likes or watchlist yet.
+      req.userId ? Interaction.findOne({ user: req.userId, movieId: movie.id }).select('reaction watched inWatchlist -_id').lean() : null,
       trailerFor(movie), // { key: YouTube id, name } or null
     ]);
     res.json({ movie: enriched, similar, trailer, interaction: interaction || { reaction: null, watched: false, inWatchlist: false } });

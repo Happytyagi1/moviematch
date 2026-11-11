@@ -70,6 +70,7 @@ export const Movies = {
   recommendations: (params, signal) => api(`/recommendations${qs(params)}`, { signal }),
   search: (q, signal, limit) => api(`/movies/search${qs({ q, limit })}`, { signal }),
   details: (id) => api(`/movies/${id}`),
+  browse: () => api('/browse'), // public rows for the landing page (no sign-in needed)
   trailer: (id, signal) => api(`/movies/${id}/trailer`, { signal }),
   providers: (id, region, signal) => api(`/movies/${id}/providers${qs({ region })}`, { signal }),
   interact: (id, patch) => api(`/interactions/${id}`, { method: 'PUT', body: patch }),

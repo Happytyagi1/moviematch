@@ -1,22 +1,22 @@
 <script setup>
-import AppLogo from '../components/AppLogo.vue';
-import MoviePoster from '../components/MoviePoster.vue';
+import { onMounted, ref } from 'vue';
+import { Movies } from '../api.js';
+import MovieRow from '../components/MovieRow.vue';
 
-// Marquee letter-board lines. Every character becomes a tile that drops in.
-const lines = [
-  { text: 'STOP SCROLLING.', tone: 'ink' },
-  { text: 'START WATCHING.', tone: 'red' },
-];
-let n = 0;
-const boards = lines.map((l) => ({ ...l, chars: [...l.text].map((c) => ({ c, i: n++ })) }));
-
-// Decorative strip of screen-printed posters (no API call on the public page).
-const reel = [
-  ['The Matrix', 1999, 'Sci-Fi'], ['Toy Story', 1995, 'Animation'], ['Pulp Fiction', 1994, 'Crime'], ['Amélie', 2001, 'Romance'],
-  ['The Shining', 1980, 'Horror'], ['Spirited Away', 2001, 'Fantasy'], ['Casablanca', 1942, 'Drama'], ['Jurassic Park', 1993, 'Adventure'],
-  ['Alien', 1979, 'Horror'], ['Superbad', 2007, 'Comedy'], ['Mad Max: Fury Road', 2015, 'Action'], ['Up', 2009, 'Animation'],
-].map(([title, year, g], i) => ({ id: i * 5 + 1, title, year, genres: [g] }));
-
+// Real, browsable rows for guests. Opening a film, its trailer and "Where to watch" work
+// without an account; liking or saving a film sends them to sign up (see stores/ui.js).
+const sections = ref([]);
+const browseLoading = ref(true);
+const browseFailed = ref(false);
+onMounted(async () => {
+  try {
+    sections.value = (await Movies.browse()).sections;
+  } catch {
+    browseFailed.value = true;
+  } finally {
+    browseLoading.value = false;
+  }
+});
 const notes = [
   { n: 'I', title: 'The screen test', text: 'Two minutes of questions: the genres you love, the films you’d rewatch, the mood you’re usually in. No rating marathons.' },
   { n: 'II', title: 'The projectionist', text: 'A hybrid model trained on 100,000 real ratings finds what people with your taste loved — and why.' },
@@ -26,45 +26,19 @@ const notes = [
 
 <template>
   <main class="landing">
-    <header class="container top">
-      <AppLogo />
-      <nav class="top-nav">
-        <span class="label hide-sm">Tonight · Showing · Everywhere</span>
-        <RouterLink to="/signin" class="btn btn-sm btn-ghost">Sign in</RouterLink>
-      </nav>
-    </header>
 
-    <section class="container hero">
-      <p class="slug fade-up">FADE IN: &nbsp;INT. YOUR COUCH — TONIGHT</p>
-
-      <div class="marquee" aria-label="Stop scrolling. Start watching.">
-        <span class="bulbs" aria-hidden="true" />
-        <div class="board" aria-hidden="true">
-          <div v-for="(b, li) in boards" :key="li" class="line" :class="b.tone">
-            <span v-for="ch in b.chars" :key="ch.i" class="tile" :class="{ space: ch.c === ' ' }" :style="{ animationDelay: `${0.25 + ch.i * 0.045}s` }">{{ ch.c }}</span>
-          </div>
-        </div>
-        <p class="now">Now showing: <em>films picked for you</em></p>
+    <!-- Browsable programme for guests: open any film, watch trailers, see where to stream it. -->
+    <section id="programme" class="programme" aria-labelledby="programme-title">
+      <div class="filmstrip" aria-hidden="true" />
+      <div class="container programme-head">
+        <h2 id="programme-title">Now showing</h2>
+        <p>Open any film for its trailer and where to watch it. <RouterLink class="text-link" to="/signup">Create a free account</RouterLink> to like films, build a watchlist and get picks made for you.</p>
       </div>
-
-      <div class="below">
-        <p class="lead fade-up" style="animation-delay: 1.5s">
-          MovieMatch asks a few good questions, then a recommender trained on real audiences programmes a season of films for you — each with a note on <em>why</em> it made the cut.
-        </p>
-        <div class="ctas fade-up" style="animation-delay: 1.65s">
-          <RouterLink to="/signup" class="btn btn-primary btn-lg">Get my picks →</RouterLink>
-          <RouterLink to="/signin" class="btn btn-lg">I have a ticket</RouterLink>
-          <span class="admit label">Admit one · free · 3,650 films</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="reel" aria-hidden="true">
-      <div class="filmstrip" />
-      <div class="reel-track">
-        <div v-for="(m, k) in [...reel, ...reel]" :key="k" class="frame"><MoviePoster :movie="m" /></div>
-      </div>
-      <div class="filmstrip" />
+      <p v-if="browseFailed" class="container browse-error">The programme didn’t load. Please refresh the page.</p>
+      <template v-else-if="browseLoading">
+        <MovieRow v-for="n in 2" :key="n" :index="n" title="Loading…" loading />
+      </template>
+      <MovieRow v-for="(s, i) in sections" v-else :key="s.id" :index="i + 1" :title="s.title" :movies="s.items" />
     </section>
 
     <section class="container notes">
@@ -83,54 +57,12 @@ const notes = [
 
 <style scoped>
 .landing { min-height: 100vh; overflow: hidden; }
-.top { display: flex; justify-content: space-between; align-items: center; height: 88px; }
-.top-nav { display: flex; align-items: center; gap: 22px; }
-.hero { padding-top: clamp(16px, 4vh, 44px); }
-.slug { font: 700 13px var(--mono); letter-spacing: 0.14em; color: var(--ink-2); margin-bottom: 22px; }
-
-/* ---- the marquee sign ---- */
-.marquee {
-  --bulb: 10px;
-  position: relative; display: inline-block; max-width: 100%; padding: 34px clamp(18px, 3vw, 40px) 26px;
-  background: var(--ink); border-radius: 6px; box-shadow: 10px 10px 0 var(--red);
-}
-.bulbs {
-  position: absolute; inset: 9px; border-radius: 4px; pointer-events: none;
-  /* a frame of bulbs: dotted border image made of radial gradients, chasing */
-  background:
-    radial-gradient(circle, #ffe7a6 0 3px, rgba(255, 210, 110, 0.35) 4px, transparent 6px) 0 0 / 22px 22px repeat-x,
-    radial-gradient(circle, #ffe7a6 0 3px, rgba(255, 210, 110, 0.35) 4px, transparent 6px) 0 100% / 22px 22px repeat-x,
-    radial-gradient(circle, #ffe7a6 0 3px, rgba(255, 210, 110, 0.35) 4px, transparent 6px) 0 0 / 22px 22px repeat-y,
-    radial-gradient(circle, #ffe7a6 0 3px, rgba(255, 210, 110, 0.35) 4px, transparent 6px) 100% 0 / 22px 22px repeat-y;
-  animation: chase 0.9s steps(2) infinite, bulbs-on 1.2s ease-out both;
-}
-@keyframes chase { to { background-position: 22px 0, -22px 100%, 0 -22px, 100% 22px; } }
-@keyframes bulbs-on { from { opacity: 0; } 40% { opacity: 1; } 55% { opacity: 0.3; } to { opacity: 1; } }
-.board { display: grid; gap: 8px; }
-.line { display: flex; flex-wrap: wrap; gap: clamp(3px, 0.5vw, 6px); }
-.tile {
-  display: inline-grid; place-items: center; width: clamp(24px, 5.1vw, 72px); height: clamp(36px, 7.4vw, 104px);
-  background: #fbf5e7; color: var(--ink); border-radius: 3px;
-  font: 900 clamp(28px, 6.4vw, 92px)/1 var(--display);
-  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.12);
-  animation: drop-in 0.55s var(--ease) both;
-}
-.line.red .tile { color: var(--red); }
-.tile.space { background: transparent; box-shadow: none; width: clamp(10px, 2vw, 26px); }
-.now { margin-top: 18px; color: var(--mustard); font: 700 13px var(--mono); text-transform: uppercase; letter-spacing: 0.16em; }
-.now em { font: italic 400 18px var(--serif); text-transform: none; letter-spacing: 0; color: #fbf5e7; }
-
-.below { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 32px; align-items: end; margin-top: 40px; }
-.lead { font-size: clamp(18px, 1.7vw, 22px); line-height: 1.5; max-width: 560px; }
-.lead em { color: var(--red); }
-.ctas { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: flex-end; }
-.admit { width: 100%; text-align: right; }
-
-/* ---- the film reel ---- */
-.reel { margin-top: clamp(48px, 8vh, 90px); transform: rotate(-2deg); width: 110vw; margin-left: -5vw; box-shadow: 0 10px 0 rgba(22, 19, 15, 0.08); }
-.reel-track { display: flex; gap: 14px; padding: 14px 7px; background: var(--ink); width: max-content; animation: roll 60s linear infinite; }
-.frame { width: 132px; flex: none; border: 2px solid #000; }
-@keyframes roll { to { transform: translateX(-50%); } }
+/* ---- "Now showing": real rows guests can browse ---- */
+.programme { margin-top: 8px; padding-bottom: 20px; scroll-margin-top: 16px; }
+.programme-head { display: grid; gap: 8px; padding-top: 34px; padding-bottom: 6px; }
+.programme-head h2 { font-size: clamp(44px, 6vw, 76px); }
+.programme-head p { font: italic 400 19px/1.45 var(--serif); color: var(--ink-2); max-width: 62ch; }
+.browse-error { padding: 30px 0; font: italic 400 18px var(--serif); }
 
 /* ---- programme notes ---- */
 .notes { padding-top: 70px; }
@@ -144,11 +76,7 @@ const notes = [
 .foot { padding: 50px 0 36px; text-align: center; }
 
 @media (max-width: 860px) {
-  .below { grid-template-columns: 1fr; }
-  .ctas { justify-content: flex-start; }
-  .admit { text-align: left; }
   .cols { grid-template-columns: 1fr; }
   .note + .note { border-left: 0; border-top: 2px solid var(--ink); padding-left: 0; }
-  .hide-sm { display: none; }
 }
 </style>
