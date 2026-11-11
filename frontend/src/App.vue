@@ -5,6 +5,7 @@ import { useAuth } from './stores/auth.js';
 import { useUi } from './stores/ui.js';
 import AppHeader from './components/AppHeader.vue';
 import GuestHeader from './components/GuestHeader.vue';
+import MobileTabBar from './components/MobileTabBar.vue';
 import SiteFooter from './components/SiteFooter.vue';
 import MovieModal from './components/MovieModal.vue';
 import ToastHost from './components/ToastHost.vue';
@@ -50,6 +51,7 @@ watch(
     </Transition>
   </RouterView>
   <SiteFooter v-if="showFooter" />
+  <MobileTabBar v-if="showHeader" />
   <MovieModal />
   <ToastHost />
 </template>

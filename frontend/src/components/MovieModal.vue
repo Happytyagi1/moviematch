@@ -145,7 +145,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
                 </button>
                 <button class="icon-btn lg" :class="{ active: state.reaction === 'like' }" :aria-pressed="state.reaction === 'like'" aria-label="I like this" @click="ui.react(movie, 'like')"><Icon name="up" /></button>
                 <button class="icon-btn lg" :class="{ active: state.reaction === 'dislike' }" :aria-pressed="state.reaction === 'dislike'" aria-label="Not for me" @click="ui.react(movie, 'dislike')"><Icon name="down" /></button>
-                <button class="btn" :class="{ 'btn-primary': state.watched }" :aria-pressed="!!state.watched" @click="ui.toggleWatched(movie)">
+                <button class="btn btn-watched" :class="{ 'btn-primary': state.watched }" :aria-pressed="!!state.watched" @click="ui.toggleWatched(movie)">
                   <Icon :name="state.watched ? 'check' : 'eye'" :size="18" /> {{ state.watched ? 'Watched' : 'Mark watched' }}
                 </button>
                 <button class="btn" :class="{ 'btn-primary': showWhere }" :aria-expanded="showWhere" aria-controls="where-panel" @click="toggleWhere">
@@ -225,6 +225,17 @@ h2 { font-size: clamp(38px, 5vw, 66px); font-weight: 900; }
 .modal-enter-from, .modal-leave-to { opacity: 0; }
 .modal-enter-from .dialog { transform: translateY(40px) rotate(1.5deg); }
 @media (max-width: 720px) {
+  /* Phones: a full-screen sheet rather than a floating card. */
+  .backdrop { padding: 0; place-items: stretch; }
+  .dialog { width: 100%; min-height: 100%; border: 0; border-radius: 0; box-shadow: none; }
+  .modal-enter-from .dialog { transform: translateY(60px); }
+  /* the close button stays reachable while scrolling a long page */
+  .close { position: fixed; top: 12px; right: 12px; z-index: 110; box-shadow: 3px 3px 0 var(--ink); }
+  /* the banner badge collides with the label and the close button; "Play trailer" is in the buttons below */
+  .play-badge { display: none; }
+  .actions { gap: 10px; }
+  .actions .btn { flex: 1 1 100%; }
+  .actions .btn-watched { flex: 1 1 0; min-width: 0; } /* shares a row with 👍 👎 */
   .body { grid-template-columns: 1fr; padding: 0 20px 24px; margin-top: -90px; }
   .poster { width: 150px; }
   .info { padding-top: 0; }

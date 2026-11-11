@@ -22,6 +22,8 @@ const ui = useUi();
 .mark { color: var(--mustard); font-weight: 700; }
 .toast.error { background: var(--red); box-shadow: 5px 5px 0 var(--ink); }
 .toast.error .mark { color: var(--paper); }
+/* phones: sit above the bottom tab bar (and the iPhone home indicator) */
+@media (max-width: 760px) { .toasts { bottom: calc(80px + env(safe-area-inset-bottom)); } }
 .toast-enter-active, .toast-leave-active { transition: all 0.3s var(--ease); }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(20px) rotate(-2deg); }
 </style>

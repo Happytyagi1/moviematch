@@ -298,5 +298,8 @@ h1 { font-size: clamp(56px, 8.5vw, 132px); font-weight: 900; line-height: 0.86; 
   .feature-stub { right: -40px; bottom: 16px; padding: 6px 10px 6px 16px; }
   .feature-stub b { font-size: 26px; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); }
+  /* feature buttons: one tidy column of equal-width buttons */
+  .hero-actions { flex-direction: column; gap: 12px; }
+  .hero-actions .btn { width: 100%; height: 52px; }
 }
 </style>
